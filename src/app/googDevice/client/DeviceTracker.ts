@@ -358,6 +358,10 @@ export class DeviceTracker extends BaseDeviceTracker<GoogDeviceDescriptor, never
             services.appendChild(td);
             if (fieldName === 'pid') {
                 hasPid = value !== '-1';
+                // patch：server 執行中時不顯示「停止 server」按鈕（server 端也已停用 kill_server）
+                if (hasPid) {
+                    return;
+                }
                 const actionButton = document.createElement('button');
                 actionButton.className = 'action-button kill-server-button';
                 actionButton.setAttribute(Attribute.UDID, device.udid);

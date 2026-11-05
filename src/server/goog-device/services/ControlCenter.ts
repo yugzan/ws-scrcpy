@@ -165,6 +165,12 @@ export class ControlCenter extends BaseControlCenter<GoogDeviceDescriptor> imple
         const type = command.getType();
         switch (type) {
             case ControlCenterCommand.KILL_SERVER:
+                // patch：多人共用時停掉裝置端 server 會讓所有人斷線；預設拒絕，
+                // 需要時設 WS_SCRCPY_ALLOW_KILL_SERVER=1 啟用
+                if (process.env.WS_SCRCPY_ALLOW_KILL_SERVER !== '1') {
+                    console.warn(`[ControlCenter] kill_server rejected for "${udid}" (disabled)`);
+                    return;
+                }
                 await device.killServer(command.getPid());
                 return;
             case ControlCenterCommand.START_SERVER:
