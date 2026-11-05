@@ -1,1 +1,7 @@
-{}
+{
+  "INCLUDE_APPL": false,
+  "INCLUDE_ADB_SHELL": false,
+  "INCLUDE_DEV_TOOLS": false,
+  "INCLUDE_FILE_LISTING": false,
+  "USE_QVH_SERVER": false
+}

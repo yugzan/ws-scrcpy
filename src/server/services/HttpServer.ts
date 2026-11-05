@@ -127,7 +127,9 @@ export class HttpServer extends TypedEmitter<HttpServerEvents> implements Servic
                 server = http.createServer(options, currentApp);
             }
             this.servers.push({ server, port });
-            server.listen(port, () => {
+            // patch: WS_SCRCPY_HOST 限定監聽介面（預設維持原行為：所有介面）
+            const listenHost = process.env.WS_SCRCPY_HOST || undefined;
+            server.listen(port, listenHost, () => {
                 Utils.printListeningMsg(proto, port, PATHNAME);
             });
         });
