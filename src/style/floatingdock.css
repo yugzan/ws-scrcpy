@@ -1,0 +1,326 @@
+/* Hallmark · component: floating dock (assistive-touch ball + menu) · genre: atmospheric · theme: custom "night console"
+ * states: default · hover · focus · active · disabled · checked
+ */
+:root {
+    --dock-ball-bg: oklch(18% 0.012 250 / 0.55);
+    --dock-ball-bg-active: oklch(22% 0.014 250 / 0.92);
+    --dock-ball-ring: oklch(100% 0 0 / 0.22);
+    --dock-ball-dot: oklch(96% 0.004 250);
+    --dock-panel-bg: oklch(17% 0.012 250 / 0.94);
+    --dock-panel-line: oklch(100% 0 0 / 0.1);
+    --dock-item-bg: oklch(100% 0 0 / 0.06);
+    --dock-item-bg-hover: oklch(100% 0 0 / 0.12);
+    --dock-item-bg-active: oklch(100% 0 0 / 0.2);
+    --dock-ink: oklch(95% 0.005 250);
+    --dock-ink-dim: oklch(72% 0.01 250);
+    --dock-accent: oklch(84% 0.17 135);
+    --dock-danger: oklch(68% 0.19 25);
+    --dock-danger-bg: oklch(68% 0.19 25 / 0.14);
+    --dock-focus: oklch(84% 0.17 135);
+    --dock-radius: 18px;
+    --dock-item-size: 64px;
+    --dock-ball-size: 48px;
+    --dock-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+    --dock-font: system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans TC', 'PingFang TC', sans-serif;
+}
+
+.floating-dock {
+    /* takes no room in the flex layout: the video gets the whole viewport */
+    display: contents;
+    font-family: var(--dock-font);
+}
+
+.fab-ball {
+    position: fixed;
+    z-index: 40;
+    width: var(--dock-ball-size);
+    height: var(--dock-ball-size);
+    padding: 0;
+    border-radius: 50%;
+    border: 1px solid var(--dock-ball-ring);
+    background: var(--dock-ball-bg);
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+    display: grid;
+    place-items: center;
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
+    opacity: 0.7;
+    transition: opacity 160ms var(--dock-ease-out), transform 160ms var(--dock-ease-out),
+        background-color 160ms var(--dock-ease-out);
+}
+
+/* the glyph: a ring with a centre dot, reads as "a control" and is not a brand mark */
+.fab-glyph {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 2px solid var(--dock-ball-dot);
+    display: grid;
+    place-items: center;
+    opacity: 0.9;
+}
+
+.fab-glyph::after {
+    content: '';
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--dock-ball-dot);
+}
+
+.fab-ball:hover {
+    opacity: 0.95;
+}
+
+.fab-ball:focus-visible {
+    outline: 2px solid var(--dock-focus);
+    outline-offset: 2px;
+    opacity: 1;
+}
+
+.fab-ball.pressed {
+    transform: scale(0.94);
+    opacity: 1;
+}
+
+.floating-dock.open .fab-ball,
+.floating-dock.dragging .fab-ball {
+    opacity: 1;
+    background: var(--dock-ball-bg-active);
+}
+
+.floating-dock.dragging .fab-ball {
+    cursor: grabbing;
+    transition: none;
+}
+
+.floating-dock.open .fab-glyph::after {
+    background: var(--dock-accent);
+}
+
+/* catches taps outside of the open menu so they never reach the game */
+.fab-scrim {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 38;
+    background: transparent;
+    touch-action: none;
+}
+
+.floating-dock.open .fab-scrim {
+    display: block;
+}
+
+.fab-panel {
+    position: fixed;
+    z-index: 39;
+    display: none;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px;
+    width: max-content;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    background: var(--dock-panel-bg);
+    border: 1px solid var(--dock-panel-line);
+    border-radius: var(--dock-radius);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    color: var(--dock-ink);
+    --svg-button-fill: var(--dock-ink);
+    touch-action: manipulation;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.floating-dock.open .fab-panel {
+    display: flex;
+    animation: fab-in 140ms var(--dock-ease-out);
+}
+
+@keyframes fab-in {
+    from {
+        opacity: 0;
+        transform: scale(0.96);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+.fab-grid {
+    display: grid;
+    grid-template-columns: repeat(3, var(--dock-item-size));
+    gap: 6px;
+}
+
+/* both <button> and checkbox <label> items */
+.fab-panel .control-button.fab-item {
+    box-sizing: border-box;
+    margin: 0;
+    width: var(--dock-item-size);
+    height: var(--dock-item-size);
+    padding: 8px 0 6px;
+    border: none;
+    border-radius: 14px;
+    background: var(--dock-item-bg);
+    color: var(--dock-ink);
+    opacity: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    font: inherit;
+    cursor: pointer;
+    transition: background-color 120ms var(--dock-ease-out), transform 120ms var(--dock-ease-out);
+}
+
+.fab-panel .control-button.fab-item > svg {
+    width: 26px;
+    height: 26px;
+    flex-shrink: 0;
+    /* the skin icons paint with var(--svg-button-fill) and keep a transparent bounding path */
+    fill: var(--svg-button-fill);
+}
+
+.fab-caption {
+    font-size: 11px;
+    line-height: 1;
+    letter-spacing: 0.02em;
+    color: var(--dock-ink-dim);
+    white-space: nowrap;
+}
+
+.fab-panel .control-button.fab-item:hover {
+    background: var(--dock-item-bg-hover);
+}
+
+.fab-panel .control-button.fab-item:active {
+    background: var(--dock-item-bg-active);
+    transform: scale(0.96);
+}
+
+.fab-panel .control-button.fab-item:focus-visible {
+    outline: 2px solid var(--dock-focus);
+    outline-offset: 1px;
+}
+
+.fab-panel .control-button.fab-item:disabled {
+    opacity: 0.4;
+    cursor: default;
+}
+
+/* checked toggles (keyboard capture, settings) */
+.fab-panel input[type='checkbox']:checked + label.fab-item {
+    background: var(--dock-item-bg-active);
+    box-shadow: inset 0 0 0 1px var(--dock-accent);
+}
+
+.fab-panel input[type='checkbox']:checked + label.fab-item {
+    --svg-button-fill: var(--dock-accent);
+}
+
+.fab-more-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 36px;
+    border: none;
+    border-radius: 12px;
+    background: transparent;
+    color: var(--dock-ink-dim);
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.fab-more-toggle:hover {
+    color: var(--dock-ink);
+    background: var(--dock-item-bg);
+}
+
+.fab-more-toggle:focus-visible {
+    outline: 2px solid var(--dock-focus);
+}
+
+.fab-chevron {
+    width: 7px;
+    height: 7px;
+    border-right: 1.5px solid currentColor;
+    border-bottom: 1.5px solid currentColor;
+    transform: translateY(-2px) rotate(45deg);
+    transition: transform 140ms var(--dock-ease-out);
+}
+
+.floating-dock.more-open .fab-chevron {
+    transform: translateY(2px) rotate(-135deg);
+}
+
+.fab-more {
+    display: none;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.floating-dock.more-open .fab-more {
+    display: flex;
+}
+
+.fab-guarded {
+    padding-top: 10px;
+    border-top: 1px solid var(--dock-panel-line);
+    /* power sits in the far corner, away from the other buttons */
+    justify-items: end;
+}
+
+.fab-guarded .control-button.fab-item {
+    grid-column: 3;
+    background: var(--dock-danger-bg);
+}
+
+.fab-panel .fab-guarded .control-button.fab-item {
+    --svg-button-fill: var(--dock-danger);
+}
+
+.fab-guarded .fab-caption {
+    color: var(--dock-danger);
+}
+
+.fab-toast {
+    position: fixed;
+    left: 50%;
+    bottom: max(24px, env(safe-area-inset-bottom));
+    transform: translateX(-50%);
+    z-index: 50;
+    max-width: min(92vw, 360px);
+    padding: 12px 16px;
+    border-radius: 12px;
+    background: var(--dock-panel-bg);
+    border: 1px solid var(--dock-panel-line);
+    color: var(--dock-ink);
+    font-family: var(--dock-font);
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .fab-ball,
+    .fab-panel .control-button.fab-item,
+    .fab-chevron {
+        transition: none;
+    }
+    .floating-dock.open .fab-panel {
+        animation: none;
+    }
+}

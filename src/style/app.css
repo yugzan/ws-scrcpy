@@ -22,6 +22,7 @@
     --progress-background-error-color: hsla(0, 100%, 50%, 0.2);
     --font-size: 14px;
     --panel-width: 3.715rem;
+    --stream-letterbox-color: oklch(0% 0 0);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -83,6 +84,56 @@ body.stream {
     background-color: var(--stream-bg-color);
 }
 
+/*
+ * Stream page: a fixed, non-scrollable, non-zoomable surface. Touches on the
+ * video are consumed by the interaction handler and forwarded to the device;
+ * everything here only stops the *browser* from reacting to them (scroll,
+ * pinch/double-tap zoom, pull-to-refresh, text selection, long-press callout).
+ */
+html:has(> body.stream) {
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+}
+
+body.stream {
+    position: fixed;
+    inset: 0;
+    background-color: var(--stream-letterbox-color);
+    overscroll-behavior: none;
+    touch-action: manipulation;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
+}
+
+body.stream .video,
+body.stream .touch-layer {
+    touch-action: none;
+}
+
+body.stream .video {
+    background-color: var(--stream-letterbox-color);
+}
+
+body.stream .more-box {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    width: auto !important;
+    max-height: 100%;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    touch-action: pan-y;
+    user-select: text;
+    -webkit-user-select: text;
+    z-index: 35;
+    box-sizing: border-box;
+}
+
 .terminal-container {
     width: 100%;
     height: 100%;
@@ -112,6 +163,9 @@ body.stream {
 .video-layer {
     position: absolute;
     z-index: 0;
+    /* centred: in fit-to-screen mode the player caps max-width/max-height */
+    inset: 0;
+    margin: auto;
     width: 100%;
     height: 100%;
     object-fit: contain;

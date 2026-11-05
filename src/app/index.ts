@@ -1,4 +1,11 @@
 import '../style/app.css';
+// Web app manifest + icons ("Add to Home Screen"), emitted as-is next to index.html
+import '../public/app/manifest.webmanifest.asset';
+import '../public/app/icon.svg.asset';
+import '../public/app/icon-192.png.asset';
+import '../public/app/icon-512.png.asset';
+import '../public/app/icon-maskable-512.png.asset';
+import '../public/app/apple-touch-icon.png.asset';
 import { StreamClientScrcpy } from './googDevice/client/StreamClientScrcpy';
 import { HostTracker } from './client/HostTracker';
 import { Tool } from './client/Tool';
