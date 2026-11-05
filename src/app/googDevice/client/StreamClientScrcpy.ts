@@ -443,14 +443,25 @@ export class StreamClientScrcpy
         return this.clientsCount;
     }
 
+    private static readonly MAX_LONG_SIDE = 1280;
+
     public getMaxSize(): Size | undefined {
         if (!this.controlButtons) {
             return;
         }
         const body = document.body;
-        const width = (body.clientWidth - this.controlButtons.clientWidth) & ~15;
-        const height = body.clientHeight & ~15;
-        return new Size(width, height);
+        // patch：以實體像素計算（乘上 devicePixelRatio），長邊上限 MAX_LONG_SIDE，
+        // 避免手機只拿到 CSS 像素大小的低解析串流再放大而變糊
+        const dpr = Math.min(window.devicePixelRatio || 1, 3);
+        let width = (body.clientWidth - this.controlButtons.clientWidth) * dpr;
+        let height = body.clientHeight * dpr;
+        const longSide = Math.max(width, height);
+        if (longSide > StreamClientScrcpy.MAX_LONG_SIDE) {
+            const k = StreamClientScrcpy.MAX_LONG_SIDE / longSide;
+            width *= k;
+            height *= k;
+        }
+        return new Size(Math.floor(width) & ~15, Math.floor(height) & ~15);
     }
 
     private setTouchListeners(player: BasePlayer): void {
