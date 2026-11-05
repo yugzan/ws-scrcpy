@@ -237,7 +237,9 @@ export class StreamClientScrcpy
         if (!videoSettings.equals(currentSettings)) {
             this.applyNewVideoSettings(videoSettings, videoSettings.equals(this.requestedVideoSettings));
         }
-        if (!oldInfo) {
+        // patch：已有其他人在看（clientsCount > 0）時，沿用現有串流設定，
+        // 不把共用編碼器縮到自己的螢幕尺寸——避免其他人的播放器因解析度中途改變而卡住
+        if (!oldInfo && this.clientsCount === 0) {
             const bounds = currentSettings.bounds;
             const videoSize: Size = screenInfo.videoSize;
             const onlyOneClient = this.clientsCount === 0;
