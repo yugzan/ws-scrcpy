@@ -15,6 +15,7 @@ import { ParamsDeviceTracker } from '../../../types/ParamsDeviceTracker';
 import { HostItem } from '../../../types/Configuration';
 import { ChannelCode } from '../../../common/ChannelCode';
 import { Tool } from '../../client/Tool';
+import { isSecondaryDevice, PREFERRED_PLAYER_CODE_NAME } from '../DeviceListPrefs';
 
 type Field = keyof GoogDeviceDescriptor | ((descriptor: GoogDeviceDescriptor) => string);
 type DescriptionColumn = { title: string; field: Field };
@@ -36,6 +37,9 @@ export class DeviceTracker extends BaseDeviceTracker<GoogDeviceDescriptor, never
     private static instancesByUrl: Map<string, DeviceTracker> = new Map();
     protected static tools: Set<Tool> = new Set();
     protected tableId = 'goog_device_list';
+    // UI state that must survive the full re-render on every tracker update
+    private static openDetails: Set<string> = new Set();
+    private static openSecondaryGroups: Set<string> = new Set();
 
     public static start(hostItem: HostItem): DeviceTracker {
         const url = this.buildUrlForTracker(hostItem).toString();
@@ -54,7 +58,20 @@ export class DeviceTracker extends BaseDeviceTracker<GoogDeviceDescriptor, never
         super({ ...params, action: DeviceTracker.ACTION }, directUrl);
         DeviceTracker.instancesByUrl.set(directUrl, this);
         this.buildDeviceTable();
+        DeviceTracker.ensureListHeader();
         this.openNewConnection();
+    }
+
+    private static ensureListHeader(): void {
+        const holder = document.getElementById(BaseDeviceTracker.HOLDER_ELEMENT_ID);
+        if (!holder || holder.querySelector(':scope > .list-header')) {
+            return;
+        }
+        const header = html`<header class="list-header">
+            <h1 class="list-title">Droid</h1>
+            <p class="list-hint">點「進入畫面」就能看到並操作裝置</p>
+        </header>`.content;
+        holder.insertBefore(header, holder.firstChild);
     }
 
     protected onSocketOpen(): void {
@@ -99,6 +116,7 @@ export class DeviceTracker extends BaseDeviceTracker<GoogDeviceDescriptor, never
             }
         }
         const action = ACTION.STREAM_SCRCPY;
+        this.updatePrimaryLink(fullName, udid, url);
         playerTds.forEach((item) => {
             item.innerHTML = '';
             const playerFullName = item.getAttribute(DeviceTracker.AttributePlayerFullName);
@@ -141,6 +159,96 @@ export class DeviceTracker extends BaseDeviceTracker<GoogDeviceDescriptor, never
         }
     };
 
+    private static getPrimaryId(fullName: string): string {
+        return `device_primary_${fullName}`;
+    }
+
+    private static rememberOpen(set: Set<string>, key: string, open: boolean): void {
+        if (open) {
+            set.add(key);
+        } else {
+            set.delete(key);
+        }
+    }
+
+    // Main action of a card while there is no stream link (yet)
+    private static fillPrimaryPlaceholder(
+        holder: HTMLElement,
+        device: GoogDeviceDescriptor,
+        isActive: boolean,
+        hasPid: boolean,
+        onClick: (event: MouseEvent) => void,
+    ): void {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'primary-action';
+        if (!isActive) {
+            button.disabled = true;
+            button.textContent = '裝置離線';
+        } else if (!hasPid) {
+            button.classList.add('start-server');
+            button.textContent = '啟動串流服務';
+            button.setAttribute(Attribute.UDID, device.udid);
+            button.setAttribute(Attribute.PID, '-1');
+            button.setAttribute(Attribute.COMMAND, ControlCenterCommand.START_SERVER);
+            button.onclick = onClick;
+        } else {
+            button.disabled = true;
+            button.textContent = '準備中…';
+        }
+        holder.appendChild(button);
+    }
+
+    // The one-tap "enter" button: preferred player, fit to screen, same tab
+    private updatePrimaryLink(fullName: string, udid: string, ws: string): void {
+        const holder = document.getElementById(DeviceTracker.getPrimaryId(fullName));
+        if (!holder) {
+            return;
+        }
+        const players = StreamClientScrcpy.getPlayers();
+        const player = players.find((item) => item.playerCodeName === PREFERRED_PLAYER_CODE_NAME) || players[0];
+        if (!player) {
+            return;
+        }
+        const link = DeviceTracker.buildLink(
+            {
+                action: ACTION.STREAM_SCRCPY,
+                udid,
+                player: player.playerCodeName,
+                ws,
+                fitToScreen: true,
+            },
+            '',
+            this.params,
+        );
+        link.removeAttribute('target');
+        link.className = 'primary-action';
+        link.innerHTML = '<span>進入畫面</span><span class="primary-arrow" aria-hidden="true"></span>';
+        link.title = `${player.playerFullName} · fit to screen`;
+        holder.innerHTML = '';
+        holder.appendChild(link);
+    }
+
+    // Collapsed group that holds duplicate/secondary serials (see DeviceListPrefs)
+    private getOrCreateSecondaryGroup(tbody: Element): Element {
+        const existing = tbody.querySelector(':scope > details.device-secondary-group');
+        if (existing) {
+            return existing;
+        }
+        const key = this.elementId;
+        const group = document.createElement('details');
+        group.className = 'device-secondary-group';
+        group.open = DeviceTracker.openSecondaryGroups.has(key);
+        group.addEventListener('toggle', () => {
+            DeviceTracker.rememberOpen(DeviceTracker.openSecondaryGroups, key, group.open);
+        });
+        const summary = document.createElement('summary');
+        summary.innerHTML = '<span>其他連線</span><span class="device-secondary-count"></span>';
+        group.appendChild(summary);
+        tbody.appendChild(group);
+        return group;
+    }
+
     private static getLocalStorageKey(udid: string): string {
         return `device_list::${udid}::interface`;
     }
@@ -179,18 +287,42 @@ export class DeviceTracker extends BaseDeviceTracker<GoogDeviceDescriptor, never
         const isActive = device.state === DeviceState.DEVICE;
         let hasPid = false;
         const servicesId = `device_services_${fullName}`;
-        const row = html`<div class="device ${isActive ? 'active' : 'not-active'}">
+        const primaryId = DeviceTracker.getPrimaryId(fullName);
+        const secondary = isSecondaryDevice(device.udid);
+        const stateLabel = isActive ? '線上' : device.state === DeviceState.DISCONNECTED ? '離線' : device.state;
+        const manufacturer = device['ro.product.manufacturer'] || '';
+        const model = device['ro.product.model'] || device.udid;
+        const row = html`<div class="device ${isActive ? 'active' : 'not-active'} ${secondary ? 'secondary' : ''}">
             <div class="device-header">
-                <div class="device-name">${device['ro.product.manufacturer']} ${device['ro.product.model']}</div>
-                <div class="device-serial">${device.udid}</div>
-                <div class="device-version">
-                    <div class="release-version">${device['ro.build.version.release']}</div>
-                    <div class="sdk-version">${device['ro.build.version.sdk']}</div>
+                <div class="device-status">
+                    <span class="device-state" title="State: ${device.state}"></span>
+                    <span class="device-state-label">${stateLabel}</span>
                 </div>
-                <div class="device-state" title="State: ${device.state}"></div>
+                <div class="device-name">
+                    <span class="device-manufacturer">${manufacturer}</span>
+                    <span class="device-model">${model}</span>
+                </div>
+                <div class="device-meta">
+                    <span class="device-version">
+                        <span class="release-version">Android ${device['ro.build.version.release']}</span>
+                        <span class="sdk-version">SDK ${device['ro.build.version.sdk']}</span>
+                    </span>
+                    <span class="device-serial">${device.udid}</span>
+                </div>
             </div>
-            <div id="${servicesId}" class="services"></div>
+            <div id="${primaryId}" class="device-primary"></div>
+            <details class="device-more">
+                <summary>其他播放器與工具</summary>
+                <div id="${servicesId}" class="services"></div>
+            </details>
         </div>`.content;
+        const details = row.querySelector('details.device-more') as HTMLDetailsElement | null;
+        if (details) {
+            details.open = DeviceTracker.openDetails.has(fullName);
+            details.addEventListener('toggle', () => {
+                DeviceTracker.rememberOpen(DeviceTracker.openDetails, fullName, details.open);
+            });
+        }
         const services = row.getElementById(servicesId);
         if (!services) {
             return;
@@ -334,7 +466,19 @@ export class DeviceTracker extends BaseDeviceTracker<GoogDeviceDescriptor, never
             });
         }
 
-        tbody.appendChild(row);
+        const primary = row.getElementById(primaryId);
+        if (primary) {
+            DeviceTracker.fillPrimaryPlaceholder(primary, device, isActive, hasPid, this.onActionButtonClick);
+        }
+
+        const parent = secondary ? this.getOrCreateSecondaryGroup(tbody) : tbody;
+        parent.appendChild(row);
+        if (secondary) {
+            const counter = parent.querySelector('.device-secondary-count');
+            if (counter) {
+                counter.textContent = `${parent.querySelectorAll('.device').length}`;
+            }
+        }
         if (DeviceTracker.CREATE_DIRECT_LINKS && hasPid && selectedInterfaceUrl) {
             this.updateLink({
                 url: selectedInterfaceUrl,

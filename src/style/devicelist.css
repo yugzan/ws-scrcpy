@@ -1,8 +1,41 @@
+/* Hallmark · component: device list (one card per device, one-tap enter) · genre: atmospheric
+ * theme: custom "night console" · paper oklch(14% 0.012 250) · accent oklch(84% 0.17 135) phosphor-lime
+ * display/body: system-ui stack (no web fonts: page must open instantly over a phone link) · mono for serials
+ * states: default · hover · focus-visible · active · disabled (offline) · loading (準備中)
+ */
 :root {
+    /* legacy tokens, still used by the overlay list on the stream page */
     --device-border-color: hsl(0, 0%, 82%);
     --device-list-stripe-color: hsl(0, 0%, 96%);
     --device-list-default-color: hsl(0, 0%, 100%);
     --device-list-hover-color: hsl(218, 67%, 95%);
+
+    --list-paper: oklch(14% 0.012 250);
+    --list-surface: oklch(19% 0.014 250);
+    --list-surface-2: oklch(23% 0.014 250);
+    --list-line: oklch(30% 0.014 250);
+    --list-ink: oklch(95% 0.005 250);
+    --list-ink-dim: oklch(72% 0.012 250);
+    --list-ink-faint: oklch(58% 0.012 250);
+    --list-accent: oklch(84% 0.17 135);
+    --list-accent-hover: oklch(88% 0.16 135);
+    --list-accent-press: oklch(78% 0.17 135);
+    --list-accent-ink: oklch(20% 0.04 135);
+    --list-online: oklch(84% 0.17 135);
+    --list-online-halo: oklch(84% 0.17 135 / 0.18);
+    --list-offline: oklch(66% 0.17 25);
+    --list-focus: oklch(90% 0.12 135);
+    --list-font: system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans TC', 'PingFang TC', sans-serif;
+    --list-mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
+    --space-xs: 4px;
+    --space-sm: 8px;
+    --space-md: 12px;
+    --space-lg: 16px;
+    --space-xl: 24px;
+    --space-2xl: 32px;
+    --radius-card: 20px;
+    --radius-control: 14px;
+    --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -14,11 +47,26 @@
     }
 }
 
+/* ---------- page ---------- */
+
+html:has(> body.list) {
+    background-color: var(--list-paper);
+    color-scheme: dark;
+    overflow-x: clip;
+}
 
 body.list {
+    position: static;
+    min-height: 100%;
     height: auto;
     width: auto;
-    overflow: auto;
+    overflow-x: clip;
+    overflow-y: auto;
+    background-color: var(--list-paper);
+    color: var(--list-ink);
+    font-family: var(--list-font);
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
 }
 
 #devices {
@@ -26,6 +74,17 @@ body.list {
     width: 100%;
     height: calc(100% - 40px);
     overflow-y: auto;
+}
+
+body.list #devices {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 560px;
+    height: auto;
+    margin: 0 auto;
+    overflow: visible;
+    padding: max(var(--space-xl), env(safe-area-inset-top)) max(var(--space-lg), env(safe-area-inset-right))
+        max(var(--space-2xl), env(safe-area-inset-bottom)) max(var(--space-lg), env(safe-area-inset-left));
 }
 
 body.stream #devices {
@@ -49,123 +108,312 @@ body.list #device_list_menu {
     z-index: 4;
 }
 
-#devices .device-list button {
-    font-size: var(--font-size);
-    color: var(--button-text-color);
+.list-header {
+    margin: 0 0 var(--space-xl);
 }
 
-#devices .device-list div.device:nth-child(2n+1){
-    background-color: var(--device-list-default-color);
+.list-title {
+    margin: 0;
+    font-size: 30px;
+    line-height: 1.1;
+    font-weight: 750;
+    letter-spacing: -0.02em;
+    font-style: normal;
 }
 
-#devices .device-list div.device:nth-child(2n){
-    background-color: var(--device-list-stripe-color);
+.list-hint {
+    margin: var(--space-sm) 0 0;
+    font-size: 15px;
+    line-height: 1.5;
+    color: var(--list-ink-dim);
+}
+
+#devices .device-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xl);
+    width: 100%;
+    font-size: 15px;
+}
+
+/* one block per tracker (host) */
+#devices .device-list > div {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-lg);
+    min-width: 0;
+}
+
+#devices .tracker-name {
+    order: -1;
+    font-size: 13px;
+    color: var(--list-ink-faint);
+    overflow-wrap: anywhere;
+}
+
+/* ---------- card ---------- */
+
+#devices .device-list div.device {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-lg);
+    min-width: 0;
+    padding: var(--space-xl) 20px 20px;
+    background-color: var(--list-surface);
+    border: 1px solid var(--list-line);
+    border-radius: var(--radius-card);
 }
 
 #devices .device-header {
-    padding: 2px 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+    min-width: 0;
 }
 
-#devices .device-header div {
+#devices .device-status {
     display: inline-flex;
+    align-items: center;
+    gap: var(--space-sm);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--list-offline);
 }
 
-#devices .device-name {
-    font-size: 120%;
-}
-
-#devices .device-model {
-    font-size: 110%;
-}
-
-#devices .device-serial {
-    color: var(--url-color);
-    font-size: 80%;
-    margin-left: 6px;
-}
-
-#devices .device-version {
-    font-size: 100%;
-    margin-left: 6px;
-    align-items: baseline;
-}
-
-#devices .device-version .sdk-version {
-    font-size: 75%;
-    color: var(--url-color);
-    margin-left: 0.2em;
+#devices .device.active .device-status {
+    color: var(--list-online);
 }
 
 #devices .device-state {
-    border-radius: 25px;
-    background-color: red;
-    font-size: 80%;
-    margin-left: 6px;
-    width: 1em;
-    height: 1em;
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: currentColor;
 }
 
 #devices .device.active .device-state {
-    background-color: green;
+    box-shadow: 0 0 0 4px var(--list-online-halo);
 }
 
-#devices .device-list {
-    position: relative;
-    bottom: 0;
-    left: 0;
+#devices .device-name {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+#devices .device-manufacturer {
+    font-size: 14px;
+    color: var(--list-ink-dim);
+}
+
+#devices .device-model {
+    font-size: 26px;
+    line-height: 1.15;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    overflow-wrap: anywhere;
+}
+
+#devices .device-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--space-xs) var(--space-md);
+    font-size: 14px;
+    color: var(--list-ink-dim);
+    min-width: 0;
+}
+
+#devices .device-version {
+    display: inline-flex;
+    gap: var(--space-sm);
+}
+
+#devices .device-version .sdk-version {
+    color: var(--list-ink-faint);
+}
+
+#devices .device-serial {
+    font-family: var(--list-mono);
+    font-size: 13px;
+    color: var(--list-ink-faint);
+    overflow-wrap: anywhere;
+}
+
+/* ---------- main action ---------- */
+
+#devices .primary-action {
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-md);
     width: 100%;
-}
-
-#devices .device-list {
-    border-spacing: 0;
-    border-collapse: collapse;
-    font-family: monospace;
-    font-size: var(--font-size);
-}
-
-#devices .device-list div.device {
-    padding: 5px 20px 5px;
-}
-
-#devices .device-list div.device:hover {
-    background-color: var(--device-list-hover-color)
-}
-
-#devices .device-list div.device select {
-    color: var(--text-color);
-    background-color: var(--main-bg-color);
-    margin-left: 0;
+    min-height: 56px;
+    padding: 0 var(--space-xl);
     border: none;
+    border-radius: var(--radius-control);
+    background-color: var(--list-accent);
+    color: var(--list-accent-ink);
+    font-family: var(--list-font);
+    font-size: 18px;
+    font-weight: 700;
+    white-space: nowrap;
+    text-decoration: none;
+    cursor: pointer;
+    touch-action: manipulation;
+    transition: background-color 140ms var(--ease-out), transform 140ms var(--ease-out);
 }
 
-#devices .device-list div.device:hover select {
-    background-color: var(--device-list-hover-color);;
+#devices .primary-action:visited {
+    color: var(--list-accent-ink);
+}
+
+#devices .primary-action:hover {
+    background-color: var(--list-accent-hover);
+}
+
+#devices .primary-action:active {
+    background-color: var(--list-accent-press);
+    transform: scale(0.985);
+}
+
+#devices .primary-action:focus-visible {
+    outline: 3px solid var(--list-focus);
+    outline-offset: 3px;
+}
+
+#devices .primary-action:disabled {
+    background-color: var(--list-surface-2);
+    color: var(--list-ink-faint);
+    cursor: default;
+    transform: none;
+}
+
+#devices .primary-action.start-server {
+    background-color: transparent;
+    color: var(--list-ink);
+    box-shadow: inset 0 0 0 1.5px var(--list-line);
+}
+
+#devices .primary-action.start-server:hover {
+    background-color: var(--list-surface-2);
+}
+
+.primary-arrow {
+    width: 9px;
+    height: 9px;
+    border-top: 2.5px solid currentColor;
+    border-right: 2.5px solid currentColor;
+    transform: rotate(45deg);
+}
+
+/* ---------- secondary: other players & tools ---------- */
+
+#devices details > summary {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    list-style: none;
+    cursor: pointer;
+    color: var(--list-ink-dim);
+    font-size: 14px;
+    min-height: 32px;
+    width: fit-content;
+    border-radius: 8px;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+#devices details > summary::-webkit-details-marker {
+    display: none;
+}
+
+#devices details > summary::after {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-right: 1.5px solid currentColor;
+    border-bottom: 1.5px solid currentColor;
+    transform: translateY(-2px) rotate(45deg);
+    transition: transform 140ms var(--ease-out);
+}
+
+#devices details[open] > summary::after {
+    transform: translateY(1px) rotate(-135deg);
+}
+
+#devices details > summary:hover {
+    color: var(--list-ink);
+}
+
+#devices details > summary:focus-visible {
+    outline: 2px solid var(--list-focus);
+    outline-offset: 2px;
+}
+
+#devices .device-more .services {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+    padding-top: var(--space-md);
+    min-width: 0;
 }
 
 #devices .device-list div.desc-block {
-    margin: .3em;
+    box-sizing: border-box;
     display: inline-flex;
+    align-items: center;
+    max-width: 100%;
+    min-height: 40px;
+    margin: 0;
+    padding: 0 var(--space-md);
+    border: 1px solid var(--list-line);
+    border-radius: 10px;
+    background-color: var(--list-paper);
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+#devices .device-list div.desc-block:empty {
+    display: none;
 }
 
 #devices .device-list div.desc-block.hidden {
     display: none;
 }
 
-#devices .device-list div.desc-block.stream,
-#devices .device-list div.desc-block.server_pid,
-#devices .device-list div.desc-block.net_interface {
-    border: 1px solid var(--device-border-color);
-    border-radius: .3em;
-    overflow: hidden;
-    white-space: nowrap;
+#devices .device-list div.desc-block a {
+    color: var(--list-ink);
+    text-decoration: none;
+}
+
+#devices .device-list div.desc-block a:hover {
+    color: var(--list-accent);
+}
+
+#devices .device-list div.desc-block a:focus-visible {
+    outline: 2px solid var(--list-focus);
+    outline-offset: 2px;
+}
+
+#devices .device-list button {
+    font-size: 14px;
+    font-family: var(--list-font);
+}
+
+#devices .device-list div.device div.desc-block .action-button {
+    border: none;
+    background-color: transparent;
+    color: var(--list-ink);
+    padding: 0;
 }
 
 #devices .device-list div.device div.desc-block.stream button.action-button {
-    color: var(--button-text-color);
-}
-
-#devices .device-list div.desc-block button {
-    fill: var(--text-color)
+    color: var(--list-ink);
 }
 
 #devices .device-list div.desc-block button > span {
@@ -178,42 +426,25 @@ body.list #device_list_menu {
 }
 
 #devices .device-list div.desc-block button > svg {
-    width: var(--font-size);
-    height: var(--font-size);
+    width: 16px;
+    height: 16px;
 }
 
 #devices .device-list div.desc-block button > svg > path {
-    fill: var(--text-color);
+    fill: var(--list-ink-dim);
 }
 
-#devices .device-list .device.not-active div.desc-block button > svg > path {
-    fill: var(--text-color-light);
-}
-
-#devices .device-list .device.not-active select {
-    color: var(--text-color-light);
-}
-
-#devices .device-list .device.not-active {
-    color: var(--text-color-light);
-}
-
-#devices .device-list .device.not-active a {
-    color: var(--link-color-light);
-}
-
-#devices .device-list .device.not-active a:visited {
-    color: var(--link-color_visited-light);
-}
-
-#devices .device-list div.device div.desc-block .action-button {
+#devices .device-list div.device select {
+    color: var(--list-ink);
+    background-color: var(--list-paper);
+    margin-left: 0;
     border: none;
-    background-color: rgba(0, 0, 0, 0);
-    color: inherit;
+    font-family: var(--list-font);
+    font-size: 14px;
 }
 
 #devices .device-list div.device div.desc-block .action-button.update-interfaces-button {
-    margin-right: 0;
+    margin-right: var(--space-xs);
 }
 
 #devices .device-list div.device div.desc-block .action-button.active {
@@ -221,15 +452,86 @@ body.list #device_list_menu {
 }
 
 #devices .device-list .device.active div.desc-block .action-button:hover {
-    color: var(--kill-button-hover-color);
+    color: var(--list-offline);
 }
 
 #devices .device-list .device.active div.desc-block button.action-button:hover > svg > path {
-    fill: var(--kill-button-hover-color);
+    fill: var(--list-offline);
 }
 
-#devices .tracker-name {
-    padding: 5px 20px 5px;
-    font-size: larger;
-    font-weight: bolder;
+/* ---------- offline ---------- */
+
+#devices .device-list .device.not-active {
+    color: var(--list-ink-dim);
+    background-color: var(--list-paper);
+}
+
+#devices .device-list .device.not-active .device-model {
+    color: var(--list-ink-dim);
+}
+
+/* ---------- duplicate / secondary serials ---------- */
+
+#devices .device-secondary-group {
+    order: 1;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+}
+
+#devices .device-secondary-group > summary {
+    color: var(--list-ink-faint);
+}
+
+.device-secondary-count {
+    min-width: 20px;
+    padding: 1px 7px;
+    border-radius: 999px;
+    background-color: var(--list-surface-2);
+    color: var(--list-ink-dim);
+    font-size: 12px;
+    text-align: center;
+}
+
+#devices .device-secondary-group[open] > summary {
+    margin-bottom: var(--space-md);
+}
+
+#devices .device-list div.device.secondary {
+    gap: var(--space-md);
+    padding: var(--space-lg);
+    background-color: transparent;
+    border-style: dashed;
+}
+
+#devices .device.secondary .device-model {
+    font-size: 18px;
+}
+
+#devices .device.secondary .primary-action {
+    min-height: 44px;
+    font-size: 15px;
+    background-color: transparent;
+    color: var(--list-ink);
+    box-shadow: inset 0 0 0 1.5px var(--list-line);
+}
+
+#devices .device.secondary .primary-action:hover {
+    background-color: var(--list-surface-2);
+}
+
+@media (min-width: 720px) {
+    body.list #devices {
+        padding-top: 56px;
+    }
+    .list-title {
+        font-size: 36px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #devices .primary-action,
+    #devices details > summary::after {
+        transition: none;
+    }
 }
