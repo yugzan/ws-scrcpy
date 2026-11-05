@@ -84,6 +84,10 @@ export class MsePlayer extends BasePlayer {
         };
         tag.addEventListener('error', this.onVideoError);
         tag.addEventListener('canplay', this.onVideoCanPlay);
+        // 回到前景（切回 App、亮螢幕、頁面從 frozen 恢復）時跳回即時畫面
+        document.addEventListener('visibilitychange', this.onForeground);
+        document.addEventListener('resume', this.onForeground);
+        window.addEventListener('pageshow', this.onForeground);
         // eslint-disable-next-line @typescript-eslint/no-empty-function
         setLogger(() => {}, console.error);
     }
@@ -94,6 +98,29 @@ export class MsePlayer extends BasePlayer {
 
     onVideoCanPlay = (): void => {
         this.onCanPlayHandler();
+    };
+
+    onForeground = (): void => {
+        if (document.visibilityState === 'hidden' || !this.converter) {
+            return;
+        }
+        const tag = this.tag;
+        if (tag.buffered.length) {
+            const end = tag.buffered.end(tag.buffered.length - 1);
+            if (end - tag.currentTime > this.MAX_BUFFER) {
+                console.log(`[${this.name}]`, `Back to foreground, jumping to live edge (${end - tag.currentTime}).`);
+                tag.currentTime = end;
+            }
+        }
+        // 瀏覽器在背景時可能暫停 <video>，回來後不會自己恢復
+        if (tag.paused && this.canPlay) {
+            const promise = tag.play();
+            if (promise) {
+                promise.catch((error: Error) => {
+                    console.warn(`[${this.name}]`, 'Failed to resume playback', error.message);
+                });
+            }
+        }
     };
 
     private static createConverter(
@@ -216,6 +243,9 @@ export class MsePlayer extends BasePlayer {
     public stop(): void {
         super.stop();
         this.stopConverter();
+        document.removeEventListener('visibilitychange', this.onForeground);
+        document.removeEventListener('resume', this.onForeground);
+        window.removeEventListener('pageshow', this.onForeground);
     }
 
     public setVideoSettings(videoSettings: VideoSettings, fitToScreen: boolean, saveToStorage: boolean): void {

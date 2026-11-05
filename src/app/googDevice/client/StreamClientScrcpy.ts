@@ -140,6 +140,8 @@ export class StreamClientScrcpy
         } else {
             this.streamReceiver = new StreamReceiverScrcpy(this.params);
         }
+        // 行動瀏覽器切到背景／關螢幕常會斷 ws：自動重連，回到前景時恢復即時畫面
+        this.streamReceiver.setAutoReconnect(true);
 
         const { udid, player: playerName } = this.params;
         // Allow the stream deep link to start already fit to screen
@@ -258,7 +260,17 @@ export class StreamClientScrcpy
         }
     };
 
+    public onReconnecting = (): void => {
+        // 新連線視同新加入的 viewer：重新送出串流設定（沿用現有設定，不影響其他 viewer），
+        // 並重建播放器的解碼管線，從新連線的關鍵畫面開始播放
+        this.joinedStream = false;
+        if (this.player && this.player.getState() === BasePlayer.STATE.PLAYING) {
+            this.player.pause();
+        }
+    };
+
     public onDisconnected = (): void => {
+        this.streamReceiver.off('reconnecting', this.onReconnecting);
         this.streamReceiver.off('deviceMessage', this.OnDeviceMessage);
         this.streamReceiver.off('video', this.onVideo);
         this.streamReceiver.off('clientsStats', this.onClientsStats);
@@ -361,6 +373,7 @@ export class StreamClientScrcpy
         streamReceiver.on('clientsStats', this.onClientsStats);
         streamReceiver.on('displayInfo', this.onDisplayInfo);
         streamReceiver.on('disconnected', this.onDisconnected);
+        streamReceiver.on('reconnecting', this.onReconnecting);
         console.log(TAG, player.getName(), udid);
 
         // When the player is in fit-to-screen mode, re-encode the stream at the
