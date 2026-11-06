@@ -222,6 +222,13 @@ export class DeviceTracker extends BaseDeviceTracker<GoogDeviceDescriptor, never
             this.params,
         );
         link.removeAttribute('target');
+        // 同分頁開啟（加到主畫面時不跳出 App）。app 只在載入時讀 hash，
+        // 只改 hash 不會重新載入頁面，所以要主動 reload
+        link.addEventListener('click', (event) => {
+            event.preventDefault();
+            window.location.href = link.href;
+            window.location.reload();
+        });
         link.className = 'primary-action';
         link.innerHTML = '<span>進入畫面</span><span class="primary-arrow" aria-hidden="true"></span>';
         link.title = `${player.playerFullName} · fit to screen`;
