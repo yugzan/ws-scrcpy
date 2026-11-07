@@ -39,6 +39,13 @@ type StartParams = {
     videoSettings?: VideoSettings;
 };
 
+export type QualityPreset = {
+    label: string;
+    longSide: number;
+    bitrate: number;
+    maxFps: number;
+};
+
 const TAG = '[StreamClientScrcpy]';
 
 export class StreamClientScrcpy
@@ -445,6 +452,59 @@ export class StreamClientScrcpy
 
     private static readonly MAX_LONG_SIDE = 1280;
 
+    // patch：懸浮球「畫質」三段預設。編碼器為所有觀看者共用，切換會影響每個人，
+    // 且 scrcpy-server 1.19-ws8 會重建編碼器（短暫黑畫面）
+    public static readonly QUALITY_PRESETS: ReadonlyArray<QualityPreset> = [
+        { label: '流暢', longSide: 960, bitrate: 2 * 1024 * 1024, maxFps: 30 },
+        { label: '標準', longSide: 1280, bitrate: 4 * 1024 * 1024, maxFps: 30 },
+        { label: '清晰', longSide: 1280, bitrate: 8 * 1024 * 1024, maxFps: 30 },
+    ];
+
+    private maxLongSide = StreamClientScrcpy.MAX_LONG_SIDE;
+
+    // 依目前串流的 bitrate 判斷是哪一段（別人切過也能反映）；對不上回 -1
+    public getQualityIndex(): number {
+        const bitrate = this.player?.getVideoSettings().bitrate;
+        return StreamClientScrcpy.QUALITY_PRESETS.findIndex((p) => p.bitrate === bitrate);
+    }
+
+    public applyQualityPreset(index: number): QualityPreset | undefined {
+        const preset = StreamClientScrcpy.QUALITY_PRESETS[index];
+        if (!preset || !this.player) {
+            return;
+        }
+        this.maxLongSide = preset.longSide;
+        const current = this.player.getVideoSettings();
+        // 以實例狀態為準（網址 fitToScreen=true）；player 的狀態讀 localStorage，沒開過設定框時會是 false
+        const fitToScreen =
+            typeof this.fitToScreen === 'boolean' ? this.fitToScreen : this.player.getFitToScreenStatus();
+        let bounds = current.bounds;
+        if (fitToScreen) {
+            bounds = this.getMaxSize() || bounds;
+        } else if (bounds) {
+            const longSide = Math.max(bounds.width, bounds.height);
+            if (longSide > preset.longSide) {
+                const k = preset.longSide / longSide;
+                bounds = new Size(Math.floor(bounds.width * k) & ~15, Math.floor(bounds.height * k) & ~15);
+            }
+        }
+        const updated = new VideoSettings({
+            crop: current.crop,
+            bitrate: preset.bitrate,
+            bounds,
+            maxFps: preset.maxFps,
+            iFrameInterval: current.iFrameInterval,
+            sendFrameMeta: current.sendFrameMeta,
+            lockedVideoOrientation: current.lockedVideoOrientation,
+            displayId: current.displayId,
+            codecOptions: current.codecOptions,
+            encoderName: current.encoderName,
+        });
+        this.player.setVideoSettings(updated, fitToScreen, false);
+        this.sendNewVideoSetting(updated);
+        return preset;
+    }
+
     public getMaxSize(): Size | undefined {
         if (!this.controlButtons) {
             return;
@@ -456,8 +516,8 @@ export class StreamClientScrcpy
         let width = (body.clientWidth - this.controlButtons.clientWidth) * dpr;
         let height = body.clientHeight * dpr;
         const longSide = Math.max(width, height);
-        if (longSide > StreamClientScrcpy.MAX_LONG_SIDE) {
-            const k = StreamClientScrcpy.MAX_LONG_SIDE / longSide;
+        if (longSide > this.maxLongSide) {
+            const k = this.maxLongSide / longSide;
             width *= k;
             height *= k;
         }

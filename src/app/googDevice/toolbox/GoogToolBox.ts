@@ -119,6 +119,23 @@ export class GoogToolBox extends ToolBox {
         });
         elements.push(fullscreen);
 
+        // patch：畫質切換，依序 流暢 → 標準 → 清晰 循環
+        const quality = new ToolBoxButton('Stream quality', SvgImage.Icon.SETTINGS);
+        quality.addEventListener('click', () => {
+            const presets = StreamClientScrcpy.QUALITY_PRESETS;
+            const next = (client.getQualityIndex() + 1) % presets.length;
+            const preset = client.applyQualityPreset(next);
+            if (preset) {
+                const mbps = Math.round(preset.bitrate / (1024 * 1024));
+                GoogToolBox.showToast(
+                    'quality_toast',
+                    `畫質：${preset.label}（長邊 ${preset.longSide}、${mbps} Mbps）。所有觀看者會一起切換，畫面會黑一下。`,
+                );
+            }
+        });
+        elements.push(quality);
+        secondary.push({ element: quality, caption: '畫質' });
+
         const keyboard = new ToolBoxCheckbox(
             'Capture keyboard',
             SvgImage.Icon.KEYBOARD,
@@ -216,5 +233,31 @@ export class GoogToolBox extends ToolBox {
         hint.textContent = '此瀏覽器不支援全螢幕。請用「分享 → 加入主畫面」，從主畫面圖示開啟即為全螢幕。';
         document.body.appendChild(hint);
         setTimeout(() => hint.remove(), 5000);
+    }
+
+    private static toastTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
+
+    private static showToast(id: string, text: string): void {
+        let toast = document.getElementById(id);
+        if (!toast) {
+            toast = document.createElement('div');
+            toast.id = id;
+            toast.className = 'fab-toast';
+            toast.setAttribute('role', 'status');
+            document.body.appendChild(toast);
+        }
+        toast.textContent = text;
+        const old = GoogToolBox.toastTimers.get(id);
+        if (old !== undefined) {
+            clearTimeout(old);
+        }
+        const el = toast;
+        GoogToolBox.toastTimers.set(
+            id,
+            setTimeout(() => {
+                el.remove();
+                GoogToolBox.toastTimers.delete(id);
+            }, 3000),
+        );
     }
 }
